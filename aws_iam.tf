@@ -1,5 +1,7 @@
 resource "aws_iam_role" "cross_account_lambda_role" {
-  name = local.lambda_functions
+  for_each = { for name, target in local.lambdas : name => target if target.lambda_type == "crossAccount" }
+
+  name = each.value.lambda_functions
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -16,7 +18,9 @@ resource "aws_iam_role" "cross_account_lambda_role" {
 }
 
 resource "aws_iam_policy" "cross_account_lambda_policy" {
-  name        = "${local.lambda_role_name}-policy"
+  for_each = { for name, target in local.lambdas : name => target if target.lambda_type == "crossAccount" }
+
+  name        = each.value.lambda_role_name
   description = "Policy for Lambda to access required resources"
   policy      = jsonencode({
     Version = "2012-10-17",
@@ -38,7 +42,8 @@ resource "aws_iam_policy" "cross_account_lambda_policy" {
           "s3:ListBucket"
         ],
         Resource = [
-          local.source_bucket_access
+          "arn:aws:s3:::akl-source-bucket",
+          "arn:aws:s3:::akl-source-bucket/*"
         ]
       },
       {
@@ -49,7 +54,8 @@ resource "aws_iam_policy" "cross_account_lambda_policy" {
           "s3:DeleteObject"
         ],
         Resource = [
-          local.destination_bucket_access
+          "arn:aws:s3:::dbt-docs-tracksuit-data",
+          "arn:aws:s3:::dbt-docs-tracksuit-data/*"
         ]
       }
     ]
@@ -57,7 +63,9 @@ resource "aws_iam_policy" "cross_account_lambda_policy" {
 }
 
 resource "aws_iam_policy_attachment" "cross_account_lambda_policy_attach" {
-  name       = "${local.lambda_role_name}-policy-attachment"
-  policy_arn = aws_iam_policy.cross_account_lambda_policy.arn
-  roles      = [aws_iam_role.cross_account_lambda_role.name]
+  for_each = { for name, target in local.lambdas : name => target if target.lambda_type == "crossAccount" }
+
+  name       = each.value.lambda_role_name
+  policy_arn = aws_iam_policy.cross_account_lambda_policy[each.key].arn
+  roles      = [aws_iam_role.cross_account_lambda_role[each.key].name]
 }

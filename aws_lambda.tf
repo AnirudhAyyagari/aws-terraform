@@ -1,26 +1,20 @@
-# aws_lambda.tf
-resource "aws_lambda_function" "lambda_functions" {
-  for_each = local.lambda_functions
+resource "aws_lambda_function" "cross_account_lambda" {
+  for_each = { for name, target in local.lambdas : name => target if target.lambda_type == "crossAccount" }
 
-  function_name = each.value.function_name
-  handler       = each.value.handler
-  runtime       = each.value.runtime
+  function_name = each.value.lambda_name
+  runtime       = "python3.9"
   role          = aws_iam_role.cross_account_lambda_role[each.key].arn
+  handler       = "lambda_function.lambda_handler"
+  memory_size   = each.value.memory_size
+  timeout       = each.value.timeout
 
-  s3_bucket     = each.value.s3_bucket
-  s3_key        = each.value.s3_key
+  filename = "lambda_function.zip"
 
   environment {
-    variables = each.value.environment_variables
+    variables = each.value.environment_vars
   }
 
-  timeout       = each.value.timeout
-  memory_size   = each.value.memory_size
-
-  tags = each.value.tags
-
   depends_on = [
-    aws_iam_role.cross_account_lambda_role,
     aws_iam_policy.cross_account_lambda_policy
   ]
 }
